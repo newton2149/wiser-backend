@@ -1,4 +1,3 @@
-# Import necessary libraries and modules
 from langchain_community.callbacks import get_openai_callback
 from langchain_core.output_parsers import PydanticOutputParser
 from pydantic import Field
@@ -9,8 +8,7 @@ from langchain_openai import AzureChatOpenAI
 from langchain_core.prompts import PromptTemplate
 from langchain_openai import AzureOpenAIEmbeddings
 from langchain_community.vectorstores import FAISS
-from langchain.chains import ConversationChain
-from langchain.memory import ConversationBufferMemory
+from configs.openai_config import openai_config
 import os
 import dotenv
 import langchain
@@ -19,9 +17,6 @@ import requests
 
 
 
-
-
-# Create a template to extract the company full name from a query
 def get_company_name(llm, query):
     # Template for extracting the company name
     template_company = """You are a stock market expert. Your task is to return the company name from the given query.\n\n{instructions}\n\nQUERY:{query}\n\nCompany name:"""
@@ -179,25 +174,35 @@ def inference(query: str) -> str:
     # Create a local cache
     langchain.llm_cache = InMemoryCache()
 
-    os.environ['AZURE_OPENAI_API_KEY'] = '8483b03cc4084b919ab26c9a83677583'
-    os.environ['AZURE_OPENAI_API_VERSION'] = '2024-08-01-preview'
-    os.environ['AZURE_OPENAI_ENDPOINT'] = 'https://navne-m1xc43b3-eastus2.openai.azure.com/'
+    # os.environ['AZURE_OPENAI_API_KEY'] = '8483b03cc4084b919ab26c9a83677583'
+    # os.environ['AZURE_OPENAI_API_VERSION'] = '2024-08-01-preview'
+    # os.environ['AZURE_OPENAI_ENDPOINT'] = 'https://navne-m1xc43b3-eastus2.openai.azure.com/'
 
 
     # Initialize the LLM class
     llm = AzureChatOpenAI(
-        azure_deployment="gpt-4",  # or your deployment
-        api_version="2024-08-01-preview",  # or your api version
+        azure_deployment=openai_config.azure_openai_deployment,  
+        api_version=openai_config.azure_openai_api_version, 
+        azure_endpoint=openai_config.azure_openai_endpoint,
+        api_key=openai_config.azure_openai_api_key,
         temperature=0,
-        max_tokens=4096
+        max_tokens=1024
 
     )
 
     # Create an embedding class
-    embeddings = AzureOpenAIEmbeddings(model="text-embedding-3-large")
+    embeddings = AzureOpenAIEmbeddings(
+        model=openai_config.azure_openai_embedding_model,
+        api_key=openai_config.azure_openai_api_key,
+        api_version=openai_config.azure_openai_api_version,
+        azure_endpoint=openai_config.azure_openai_endpoint,
+        
+        
+        
+    )
 
     # Load embeddings for the ticker retriever
-    vs = FAISS.load_local(folder_path="/home/navneeth/EgoPro/dnn/wiser/src/vector_store", embeddings=embeddings,allow_dangerous_deserialization=True)
+    vs = FAISS.load_local(folder_path=openai_config.vector_store_path, embeddings=embeddings,allow_dangerous_deserialization=True)
 
 
     with get_openai_callback() as cb:
@@ -217,20 +222,23 @@ def inference(query: str) -> str:
 
 
 def reply_analyse(context,query):
-    os.environ['AZURE_OPENAI_API_KEY'] = '8483b03cc4084b919ab26c9a83677583'
-    os.environ['AZURE_OPENAI_API_VERSION'] = '2024-08-01-preview'
-    os.environ['AZURE_OPENAI_ENDPOINT'] = 'https://navne-m1xc43b3-eastus2.openai.azure.com/'
-
+    # os.environ['AZURE_OPENAI_API_KEY'] = openai_config.azure_openai_api_key
+    # os.environ['AZURE_OPENAI_API_VERSION'] = openai_config.azure_openai_api_version
+    # os.environ['AZURE_OPENAI_ENDPOINT'] = openai_config.azure_openai_endpoint
 
     llm = AzureChatOpenAI(
-        azure_deployment="gpt-4",  
-        api_version="2024-08-01-preview", 
+        azure_deployment=openai_config.azure_openai_deployment,  
+        api_version=openai_config.azure_openai_api_version, 
+        azure_endpoint=openai_config.azure_openai_endpoint,
+        api_key=openai_config.azure_openai_api_key,
         temperature=0,
         max_tokens=4096
+        
 
     )
 
-    prompt = """You are an expert in the stock market. Your task is to provide guidance based on the data \n\n{context}\n\n {query}"""
+    prompt = """You are an expert in the stock market. Your task is to provide guidance based on the data and should be short \n\n{context}\n\n {query}"""
+    
 
     prompt_reply = PromptTemplate(
         input_variables=["context","query"], template=prompt
@@ -247,3 +255,37 @@ def reply_analyse(context,query):
         result = conversation.predict(context = context,query = query)
     
     return result,cb
+
+
+def generate_title(msg: str):
+    # This generator will stream the result in chunks
+    
+    
+    llm = AzureChatOpenAI(
+        azure_deployment=openai_config.azure_openai_deployment,  
+        api_version=openai_config.azure_openai_api_version, 
+        azure_endpoint=openai_config.azure_openai_endpoint,
+        api_key=openai_config.azure_openai_api_key,
+        temperature=0,
+        max_tokens=100
+
+    )
+    
+    prompt = """Generate chat title for {query} in single line less than 20 characters and return just the plain text """
+    
+
+    prompt_reply = PromptTemplate(
+        input_variables=["query"], template=prompt
+    )
+
+
+    conversation = LLMChain(
+        prompt=prompt_reply,
+        llm=llm,
+    )
+    
+    with get_openai_callback() as cb:
+
+        result = conversation.predict(query = msg)
+    
+    return result

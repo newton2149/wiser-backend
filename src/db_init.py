@@ -1,10 +1,10 @@
 from sqlalchemy import create_engine, Column, Integer, String,FLOAT
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
-import redis
+from pymongo import MongoClient
+from configs.db_config import db_config
 
-
-DATABASE_URL = "postgresql+psycopg2://postgres:appu9677@localhost:5432/wiser"
+DATABASE_URL = db_config.rds_postgres_url
 
 # Create a database engine
 engine = create_engine(DATABASE_URL)
@@ -12,11 +12,11 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
 
-from pymongo import MongoClient
 
-client = MongoClient("mongodb://localhost:27017")  # Replace with your MongoDB URI
-db = client["chat_database"]  # Create or access a database
-collection = db["conversations"]  
+
+client = MongoClient(db_config.mongo_url)  # Replace with your MongoDB URI
+db = client[db_config.mongo_db_name]  # Create or access a database
+
 
 # Define the User model
 class User(Base):
